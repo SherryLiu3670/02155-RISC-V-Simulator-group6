@@ -1,6 +1,6 @@
 class RiscvSimulator:
     def __init__(self, memory_size = 1024):
-        self.registers = [0]*32
+        self.registers = [0x00000000]*32
         self.pc = 0
         self.memory = [0] * memory_size
 
@@ -47,6 +47,11 @@ class RiscvSimulator:
     
     def R_instruction(self, rd, funct3, rs1, rs2, funct7):
         if funct3 == 0x0:
+            if funct7 == 0x00:
+                self.registers[rd] = self.registers[rs1] + self.registers[rs2]
+                pc += 1
+            elif funct7 == 0x20 and rd == rs1 - rs2:
+                return "sub"
         
         
 
@@ -55,6 +60,21 @@ class RiscvSimulator:
     def S_instruction(self, imm0_4, size, rs1, rs2, imm5_11):
 
     def B_instruction(self, imm_11, imm1_4, funct3, rs1, rs2, imm5_10, imm12):
+        imm12_shifted = (imm12 << 12)
+        imm_11_shifted = (imm_11 << 11)
+        imm5_10_shifted = (imm5_10 << 5)
+        imm1_4_shifted = (imm1_4 << 1)
+        final_binary = imm12_shifted | imm_11_shifted | imm5_10_shifted | imm1_4_shifted | 0
+        imm = int(final_binary)
+
+        if funct3 == 0x0:
+            if rs1 == rs2:
+                pc += imm
+            else:
+                pc += 4  # beq
+
+
+
 
         
 
