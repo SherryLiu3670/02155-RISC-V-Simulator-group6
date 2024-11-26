@@ -15,11 +15,11 @@ class RiscvSimulator:
             opcode = instruction & 0x7f
 
             if (opcode == 0b0110011): # R-type
-                rd = instruction & 0xf80
-                funct3 = instruction & 0x7000
-                rs1 = instruction & 0xf8000
-                rs2 = instruction & 0x1f00000
-                funct7 = instruction & 0xfe000000
+                rd = (instruction & 0xf80) >> 7
+                funct3 = (instruction & 0x7000) >> 12
+                rs1 = (instruction & 0xf8000) >> 15
+                rs2 = (instruction & 0x1f00000) >> 20
+                funct7 = (instruction & 0xfe000000) >> 25
                 self.R_instruction(rd, funct3, rs1, rs2, funct7)
 
             elif (opcode == 0b0010011 or opcode == 0b0000011 or opcode == 0b1100111): # I-type
@@ -39,11 +39,11 @@ class RiscvSimulator:
 
 
             elif (opcode == 0b0100011): # S-type
-                imm0_4 = instruction & 0xf80
-                size = instruction & 0x3000 # 00: byte 01: half-word 11: word 
-                rs1 = instruction & 0xf8000
-                rs2 = instruction & 0x1f00000
-                imm5_11 = instruction & 0xfe000000
+                imm0_4 = (instruction & 0xf80) >> 7
+                size = (instruction & 0x3000) >> 12 # 00: byte 01: half-word 11: word 
+                rs1 = (instruction & 0xf8000) >> 15
+                rs2 = (instruction & 0x1f00000) >> 20
+                imm5_11 = (instruction & 0xfe000000) >> 25 
                 self.S_instruction(imm0_4, size, rs1, rs2, imm5_11)
 
             elif (opcode == 0b1100011): # B-type
@@ -88,7 +88,41 @@ class RiscvSimulator:
 
     
     def R_instruction(self, rd, funct3, rs1, rs2, funct7):
-        if funct3 == 0x0:
+        if funct3 == 0x0:  # ADD or SUB
+            if funct7 == 0x00:
+                self.registers[rd] = self.registers[rs1] + self.registers[rs2]
+                print(f"add x{rd}, x{rs1}, x{rs2}")
+            elif funct7 == 0x20:
+                self.registers[rd] = self.registers[rs1] - self.registers[rs2]
+                print(f"sub x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x7:  # AND
+            self.registers[rd] = self.registers[rs1] & self.registers[rs2]
+            print(f"and x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x6:  # OR
+            self.registers[rd] = self.registers[rs1] | self.registers[rs2]
+            print(f"or x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x4:  # XOR
+            self.registers[rd] = self.registers[rs1] ^ self.registers[rs2]
+            print(f"xor x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x1:  # SLL (Shift Left Logical)
+#           self.registers[rd] = (self.registers[rs1] << (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+            self.registers[rd] = (self.registers[rs1] << (self.registers[rs2])) & 0xFFFFFFFF
+            print(f"sll x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x5:  # SRL or SRA
+            if funct7 == 0x00:  # SRL (Shift Right Logical)
+#               self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+                self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+                print(f"srl x{rd}, x{rs1}, x{rs2}")
+            elif funct7 == 0x20:  # SRA (Shift Right Arithmetic)
+                self.registers[rd] = self.msb_extend(self.registers[rs1] >> (self.registers[rs2] & 0x1F), 32)
+                print(f"sra x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x2:  # SLT (Set Less Than)
+            self.registers[rd] = 1 if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32) else 0
+            print(f"slt x{rd}, x{rs1}, x{rs2}")
+        elif funct3 == 0x3:  # SLTU (Set Less Than Unsigned)
+            self.registers[rd] = 1 if self.registers[rs1] < self.registers[rs2] else 0
+            print(f"sltu x{rd}, x{rs1}, x{rs2}")
+        self.pc += 4  
         
         
 
@@ -162,7 +196,19 @@ class RiscvSimulator:
         self.decode_inst(self)
 
     def S_instruction(self, imm0_4, size, rs1, rs2, imm5_11):
+        imm = ((imm5_11 << 5) | imm0_4)  # Combine the immediate parts
+        address = self.registers[rs1] + self.to_signed(imm, 12)
+        if size == 0x0:  # SB (Store Byte)
+            self.memory[address] = self.registers[rs2] & 0xFF
+            print(f"sb x{rs2}, {imm}(x{rs1})")
+        elif size == 0x1:  # SH (Store Half-Word)
+            self.memory[address] = self.registers[rs2] & 0xFFFF
+            print(f"sh x{rs2}, {imm}(x{rs1})")
+        elif size == 0x2:  # SW (Store Word)
+            self.memory[address] = self.registers[rs2] & 0xFFFFFFFF
+            print(f"sw x{rs2}, {imm}(x{rs1})")
 
+        self.pc += 4
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
             if self.registers[rs1] = self.registers[rs2]:
