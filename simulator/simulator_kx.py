@@ -17,11 +17,11 @@ class RiscvSimulator:
             opcode = instruction & 0x7f
 
             if (opcode == 0b0110011): # R-type
-                rd = instruction & 0xf80
-                funct3 = instruction & 0x7000
-                rs1 = instruction & 0xf8000
-                rs2 = instruction & 0x1f00000
-                funct7 = instruction & 0xfe000000
+                rd = (instruction & 0xf80) >> 7
+                funct3 = (instruction & 0x7000) >> 12
+                rs1 = (instruction & 0xf8000) >> 15
+                rs2 = (instruction & 0x1f00000) >> 20
+                funct7 = (instruction & 0xfe000000) >> 25
                 self.R_instruction(rd, funct3, rs1, rs2, funct7)
 
             elif (opcode == 0b0000011 or opcode == 0b0000011 or opcode == 0b1100111): # I-type
@@ -41,11 +41,11 @@ class RiscvSimulator:
 
 
             elif (opcode == 0b0100011): # S-type
-                imm0_4 = instruction & 0xf80
-                size = instruction & 0x3000 # 00: byte 01: half-word 11: word 
-                rs1 = instruction & 0xf8000
-                rs2 = instruction & 0x1f00000
-                imm5_11 = instruction & 0xfe000000
+                imm0_4 = (instruction & 0xf80) >> 7
+                size = (instruction & 0x3000) >> 12 # 00: byte 01: half-word 11: word 
+                rs1 = (instruction & 0xf8000) >> 15
+                rs2 = (instruction & 0x1f00000) >> 20
+                imm5_11 = (instruction & 0xfe000000) >> 25 
                 self.S_instruction(imm0_4, size, rs1, rs2, imm5_11)
 
             elif (opcode == 0b1100011): # B-type
