@@ -1,5 +1,5 @@
 class RiscvSimulator:
-    def __init__(self, memory_size = 8*1e6):
+    def __init__(self, program, memory_size = 8*1e6):
         self.registers = [0x00000000]*32
         self.pc = 0
         self.memory = [0] * memory_size
@@ -266,7 +266,32 @@ class RiscvSimulator:
         if value & (1 << (bits - 1)):
             return value - (1 << bits)
         return value
-        
+
+
+def read_binary_to_instruction_list(file_path):
+    try:
+        with open(file_path, "rb") as binary_file:
+            binary_data = binary_file.read()
+
+        instruction_size = 4 
+        instructions = []
+
+        for i in range(0, len(binary_data), instruction_size):
+            instruction = binary_data[i:i + instruction_size]
+            instructions.append(instruction.hex()) 
+
+        return instructions
+    except Exception as e:
+        print(f"error: {e}")
+
+def main():
+    instructions = read_binary_to_instruction_list("")
+    riskv = RiscvSimulator(instructions)
+
+ if __name__ == "__main__":
+    main()
+
+    
 
 
 
