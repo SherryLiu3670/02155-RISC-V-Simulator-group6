@@ -3,9 +3,7 @@ class RiscvSimulator:
         self.registers = [0x00000000]*32
         self.pc = 0
         self.memory = [0] * memory_size
-        self.program = [0x00200093, # addi x1, x0, 2
-                        0x00300113, # addi x2, x0, 3
-                        0x002081b3 ]# add x3, x1, x2
+        self.program = program
 
     def load_program(self):
         for i in range(len(self.program)):
@@ -287,8 +285,11 @@ def read_binary_to_instruction_list(file_path):
 def main():
     instructions = read_binary_to_instruction_list("")
     riskv = RiscvSimulator(instructions)
-
- if __name__ == "__main__":
+    riskv.load_program()
+    riskv.decode_inst()
+    
+ 
+if __name__ == "__main__":
     main()
 
     
