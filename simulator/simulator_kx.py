@@ -77,7 +77,10 @@ class RiscvSimulator:
             elif (opcode == 0b0110111 or opcode ==0b0010111): # U-type
                 rd = (instruction & 0xf80) >> 7
                 imm31_12 = instruction & 0xfffff000
-                self.U_instruction(rd, imm31_12)
+                if (opcode == 0b0110111):
+                    self.U_L_instruction(rd, imm31_12)
+                elif (opcode == 0b0010111):
+                    self.U_A_instruction(rd, imm31_12)
 
             
         
@@ -165,37 +168,37 @@ class RiscvSimulator:
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
             if self.registers[rs1] = self.registers[rs2]:
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("beq register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x1:
             if self.registers[rs1] != self.registers[rs2]:
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("bne register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x4:
             if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32):
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("blt register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x5:
             if self.to_signed(self.registers[rs1], 32) >= self.to_signed(self.registers[rs2], 32):
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("bge register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x6:
             if self.zero_extend(self.registers[rs1], 32) < self.zero_extend(self.registers[rs2], 32):
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("bltu register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x7:
             if self.zero_extend(self.registers[rs1], 32) >= self.zero_extend(self.registers[rs2], 32):
-                self.pc += imm * 4
+                self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
             print("bgeu register[%d], register[%d], %d" %(rs1, rs2, imm))
@@ -205,27 +208,26 @@ class RiscvSimulator:
 
     def J_instruction(self, rd, imm):
         self.registers[rd] = self.pc + 4
-        self.pc += imm * 4      # signed immediate 
+        self.pc += self.to_signed(imm, 21) * 4  
         print("jal register[%d], %d" %(rd, imm))
         self.decode_inst(self)
 
     def I_R_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
             self.registers[rd] = self.pc + 4
-            self.pc = self.registers[rs1] + imm0_11   # signed immediate 
+            self.pc = self.registers[rs1] + self.to_signed(imm0_11, 12) 
         print("jalr register[%d], register[%d], %d" %(rd, rs1, imm0_11))
 
         self.decode_inst(self)
 
-    def U_instruction(self, rd, imm31_12):  # opcode
-        if opcode == 0b0110111:
-            self.registers[rd] = imm31_12
-            print("lui register[%d], %d" %(rd, imm31_12))
-        
-        elif opcode == 0b0010111:
-            self.registers[rd] = self.pc + imm31_12
-            print("auipc register[%d], %d" %(rd, imm31_12))
+    def U_L_instruction(self, rd, imm31_12):
+        self.registers[rd] = self.to_signed(imm31_12, 20)
+        print("lui register[%d], %d" %(rd, imm31_12))
+        self.decode_inst(self)
 
+    def U_A_instruction(self, rd, imm31_12):
+        self.registers[rd] = self.pc + self.to_signed(imm31_12, 20)
+        print("auipc register[%d], %d" %(rd, imm31_12))
         self.decode_inst(self)
 
     def I_E_instruction(self, rd, func3, rs1, imm0_11):
