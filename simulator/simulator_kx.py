@@ -63,7 +63,7 @@ class RiscvSimulator:
                 imm_12_shift = (imm_12 << 12)
                 imm = imm_12_shift | imm_11_shifted | imm5_10_shift | imm1_4_shift | 0
 
-                self.B_instruction(imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm)
+                self.B_instruction(imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm_12, imm)
 
             elif (opcode == 0b1101111): # J-type
                 rd = (instruction & 0xf80) >> 7
@@ -71,7 +71,7 @@ class RiscvSimulator:
                 imm10_1 = (instruction & 0x7fe00000) >> 20
                 imm_11 = (instruction & 0x100000) >> 9
                 imm19_12 = (instruction & 0xff000)
-                imm = imm_20 | imm19_12 | imm11 | imm10_1 | 0
+                imm = imm_20 | imm19_12 | imm_11 | imm10_1 | 0
                 self.U_instruction(rd, imm)
 
             elif (opcode == 0b0110111 or opcode ==0b0010111): # U-type
@@ -105,10 +105,12 @@ class RiscvSimulator:
             self.registers[rd] = self.registers[rs1] ^ self.registers[rs2]
             print(f"xor x{rd}, x{rs1}, x{rs2}")
         elif funct3 == 0x1:  # SLL (Shift Left Logical)
-            self.registers[rd] = (self.registers[rs1] << (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+#            self.registers[rd] = (self.registers[rs1] << (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+            self.registers[rd] = (self.registers[rs1] << (self.registers[rs2])) & 0xFFFFFFFF
             print(f"sll x{rd}, x{rs1}, x{rs2}")
         elif funct3 == 0x5:  # SRL or SRA
             if funct7 == 0x00:  # SRL (Shift Right Logical)
+#               self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
                 self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
                 print(f"srl x{rd}, x{rs1}, x{rs2}")
             elif funct7 == 0x20:  # SRA (Shift Right Arithmetic)
@@ -212,7 +214,7 @@ class RiscvSimulator:
 
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
-            if self.registers[rs1] = self.registers[rs2]:
+            if self.registers[rs1] == self.registers[rs2]:
                 pc += imm * 4
             else:
                 pc += 4
@@ -253,7 +255,7 @@ class RiscvSimulator:
 
     def J_instruction(self, rd, imm):
         self.registers[rd] = pc + 4
-            pc = self.registers[rs1] + imm
+        pc = self.registers[rd] + imm
         print("jal register[%d], %d" %(rd, imm))
 
         self.decode_inst(self)
