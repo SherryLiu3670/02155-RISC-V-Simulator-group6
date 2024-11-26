@@ -1,5 +1,5 @@
 class RiscvSimulator:
-    def __init__(self, program, memory_size = 8*1e6):
+    def __init__(self, program, memory_size = int(8*1e6)):
         self.registers = [0x00000000]*32
         self.pc = 0
         self.memory = [0] * memory_size
@@ -7,12 +7,20 @@ class RiscvSimulator:
 
     def load_program(self):
         for i in range(len(self.program)):
-            self.memory[i] = self.program[i]
+            instruction = int(self.program[i], 16)  
+            instruction_bytes = instruction.to_bytes(4, 'little')  
+            self.memory[i * 4:(i + 1) * 4] = instruction_bytes 
 
     def decode_inst(self):
-        while (self.pc <= len(self.program)):
-            instruction = self.memory[8*self.pc:9*self.pc-1]
+        while self.pc < len(self.memory) and self.pc < len(self.program) * 4:
+            instruction = self.memory[self.pc:self.pc+4]
+            if len(instruction) < 4:
+                print(f"Incomplete instruction at PC={self.pc}")
+                break 
+            instruction = int.from_bytes(bytes(instruction), 'little')  # Small endian
+            print(instruction)
             opcode = instruction & 0x7f
+            print("opcode", opcode)
 
             if (opcode == 0b0110011): # R-type
                 rd = (instruction & 0xf80) >> 7
@@ -169,7 +177,6 @@ class RiscvSimulator:
             self.pc += 4
             print("sltiu register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
 
-        self.decode_inst(self)
 
     def I_L_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
@@ -192,8 +199,7 @@ class RiscvSimulator:
             self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xffff)
             self.pc += 4
             print("lhu register[%d], register[%d], %d" %(rd, rs1, imm0_11))
-        
-        self.decode_inst(self)
+
 
     def S_instruction(self, imm0_4, size, rs1, rs2, imm5_11):
         imm = ((imm5_11 << 5) | imm0_4)  # Combine the immediate parts
@@ -207,11 +213,11 @@ class RiscvSimulator:
         elif size == 0x2:  # SW (Store Word)
             self.memory[address] = self.registers[rs2] & 0xFFFFFFFF
             print(f"sw x{rs2}, {imm}(x{rs1})")
-
         self.pc += 4
+
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
-            if self.registers[rs1] = self.registers[rs2]:
+            if self.registers[rs1] == self.registers[rs2]:
                 self.pc += self.to_signed(imm, 13) * 4
             else:
                 self.pc += 4
@@ -247,14 +253,13 @@ class RiscvSimulator:
                 self.pc += 4
             print("bgeu register[%d], register[%d], %d" %(rs1, rs2, imm))
         
-        self.decode_inst(self)
 
 
     def J_instruction(self, rd, imm):
         self.registers[rd] = self.pc + 4
         self.pc += self.to_signed(imm, 21) * 4  
         print("jal register[%d], %d" %(rd, imm))
-        self.decode_inst(self)
+
 
     def I_R_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
@@ -262,17 +267,13 @@ class RiscvSimulator:
             self.pc = self.registers[rs1] + self.to_signed(imm0_11, 12) 
         print("jalr register[%d], register[%d], %d" %(rd, rs1, imm0_11))
 
-        self.decode_inst(self)
-
     def U_L_instruction(self, rd, imm31_12):
         self.registers[rd] = self.to_signed(imm31_12, 20)
         print("lui register[%d], %d" %(rd, imm31_12))
-        self.decode_inst(self)
 
     def U_A_instruction(self, rd, imm31_12):
         self.registers[rd] = self.pc + self.to_signed(imm31_12, 20)
         print("auipc register[%d], %d" %(rd, imm31_12))
-        self.decode_inst(self)
 
     def I_E_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0 and imm0_11 == 0x0:
@@ -291,8 +292,6 @@ class RiscvSimulator:
 
         else:
             print("Unhandled I-type instruction")
-
-
 
 
     def msb_extend(value, bits):
@@ -329,7 +328,7 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    instructions = read_binary_to_instruction_list("")
+    instructions = read_binary_to_instruction_list("../tests/task1/addlarge.bin")
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
