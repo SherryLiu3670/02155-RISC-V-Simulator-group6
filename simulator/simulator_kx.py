@@ -1,3 +1,5 @@
+import os
+
 class RiscvSimulator:
     def __init__(self, program, memory_size = int(8*1e6)):
         self.registers = [0x00000000]*32
@@ -141,20 +143,20 @@ class RiscvSimulator:
 
     def I_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] =  self.to_signed(self.registers[rs1],32) + self.to_signed(imm0_11, 12)
+            self.registers[rd] =  self.msb_extend(self.to_signed(self.registers[rs1],32) + self.to_signed(imm0_11, 12), 32,32)
             self.registers[2] += 4
             print("addi register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x4:
             print("xori")
-            self.registers[rd] = self.registers[rs1]^self.zero_extend(imm0_11,32)
+            self.registers[rd] = self.zero_extend(self.registers[rs1]^self.zero_extend(imm0_11,32),32)
             self.registers[2] += 4
             print("xori register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x6:
-            self.registers[rd] = self.registers[rs1] | self.zero_extend(imm0_11,32)
+            self.registers[rd] = self.zero_extend(self.registers[rs1] | self.zero_extend(imm0_11,32),32)
             self.registers[2] += 4
             print("ori register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
         elif func3 == 0x7:
-            self.registers[rd] = self.registers[rs1] & self.zero_extend(imm0_11, 32)
+            self.registers[rd] = self.zero_extend(self.registers[rs1] & self.zero_extend(imm0_11, 32),32)
             self.registers[2] += 4
             print("ANDi register[%d], register[%d], %d" %(rd, rs1, imm0_11))   
         elif func3 == 0x1:
@@ -338,6 +340,7 @@ class RiscvSimulator:
     
 
 def read_binary_to_instruction_list(file_path):
+    print('-->>',os.getcwd())
     try:
         with open(file_path, "rb") as binary_file:
             binary_data = binary_file.read()
@@ -357,11 +360,12 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    instructions = read_binary_to_instruction_list("../tests/task1/addlarge.bin")
+    instructions = read_binary_to_instruction_list(f"{os.getcwd()}/tests/task1/addlarge.bin")
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
     
+
  
 if __name__ == "__main__":
     main()
