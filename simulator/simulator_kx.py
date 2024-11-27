@@ -20,7 +20,6 @@ class RiscvSimulator:
             instruction = int.from_bytes(bytes(instruction), 'little')  # Small endian
             opcode = instruction & 0x7f
 
-
             if (opcode == 0b0110011): # R-type
                 rd = (instruction & 0xf80) >> 7
                 funct3 = (instruction & 0x7000) >> 12
@@ -90,7 +89,7 @@ class RiscvSimulator:
 
             else:
                 for i in range(32):
-                    print("register %d equals to: %i " %(i,self.registers[i]))
+                    print("register %d equals to: %d " %(i,int(self.registers[i])))
                 print("Finished")
                 break
         
@@ -101,10 +100,10 @@ class RiscvSimulator:
     def R_instruction(self, rd, funct3, rs1, rs2, funct7):
         if funct3 == 0x0:  # ADD or SUB
             if funct7 == 0x00:
-                self.registers[rd] = self.registers[rs1] + self.registers[rs2]
+                self.registers[rd] = self.to_signed(self.registers[rs1],32) + self.to_signed(self.registers[rs2],32)
                 print(f"add x{rd}, x{rs1}, x{rs2}")
             elif funct7 == 0x20:
-                self.registers[rd] = self.registers[rs1] - self.registers[rs2]
+                self.registers[rd] = self.to_signed(self.registers[rs1],32) - self.to_signed(self.registers[rs2],32)
                 print(f"sub x{rd}, x{rs1}, x{rs2}")
         elif funct3 == 0x7:  # AND
             self.registers[rd] = self.registers[rs1] & self.registers[rs2]
@@ -122,10 +121,13 @@ class RiscvSimulator:
         elif funct3 == 0x5:  # SRL or SRA
             if funct7 == 0x00:  # SRL (Shift Right Logical)
 #               self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
-                self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
+                if self.registers[rs1] < 0:
+                    self.registers[rd] = self.zero_extend((self.registers[rs1] + (1 << 32)) >> (self.registers[rs2] & 0x1F), 32)  
+                else:
+                    self.registers[rd] = (self.registers[rs1] >> (self.registers[rs2] & 0x1F)) & 0xFFFFFFFF
                 print(f"srl x{rd}, x{rs1}, x{rs2}")
             elif funct7 == 0x20:  # SRA (Shift Right Arithmetic)
-                self.registers[rd] = self.msb_extend(self.registers[rs1] >> (self.registers[rs2] & 0x1F), 32)
+                self.registers[rd] = self.msb_extend(self.registers[rs1] >> (self.registers[rs2] & 0x1F), 32, 32)
                 print(f"sra x{rd}, x{rs1}, x{rs2}")
         elif funct3 == 0x2:  # SLT (Set Less Than)
             self.registers[rd] = 1 if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32) else 0
@@ -139,9 +141,9 @@ class RiscvSimulator:
 
     def I_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] =  self.registers[rs1] + self.msb_extend(imm0_11, 32)
+            self.registers[rd] =  self.to_signed(self.registers[rs1],32) + self.to_signed(imm0_11, 12)
             self.registers[2] += 4
-            print("addi register[%d], register[%d], %d" %(rd, rs1, imm0_11))
+            print("addi register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x4:
             print("xori")
             self.registers[rd] = self.registers[rs1]^self.zero_extend(imm0_11,32)
@@ -160,47 +162,59 @@ class RiscvSimulator:
             self.registers[2] += 4
             print("slli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
         elif func3 == 0x5:
-            if (imm0_11 & 0xfe0) == 0x00:
-                self.registers[rd] = self.zero_extend(self.registers[rs1] >> (imm0_11 & 0b11111), 32)          
+            if ((imm0_11 & 0xfe0) >> 5) == 0x00:
+                if self.registers[rs1] < 0:
+                    self.registers[rd] = self.zero_extend((self.registers[rs1] + (1 << 32)) >> (imm0_11 & 0b11111), 32)  
+                else:
+                    self.registers[rd] = self.zero_extend(self.registers[rs1] >> (imm0_11 & 0b11111), 32)      
                 self.registers[2] += 4
                 print("srli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
-            elif  (imm0_11 & 0xfe0) == 0x20:
+            elif  ((imm0_11 & 0xfe0) >> 5) == 0x20:
                 imm0_4 = imm0_11 & 0b11111
-                self.registers[rd] = self.msb_extend(self.registers[rs1] >> imm0_4, 32)   
+                # if self.registers[rs1] < 0:
+                #     self.registers[rd] = self.msb_extend((self.registers[rs1] >> imm0_4) | ((1 << 32) - 1) << (32 - imm0_4), 32, 32) 
+                # else:
+                self.registers[rd] = self.msb_extend(self.registers[rs1] >> imm0_4, 32, 32)
                 self.registers[2] += 4
                 print("srai register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
         elif func3 == 0x2:
-            rs1 = self.registers[rs1]
+            rs1 = self.to_signed(self.registers[rs1],32)
             sign_imm0_11 = self.to_signed(imm0_11, 12)
-            self.registers[rd] = lambda: 1 if rs1 < sign_imm0_11 else 0
+            if rs1 < sign_imm0_11:
+                self.registers[rd] = 1
+            else:
+                self.registers[rd] = 0
             self.registers[2] += 4
             print("slti register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
         elif func3 == 0x3:
             rs1 = self.registers[rs1]
-            self.registers[rd] = lambda rs1, imm0_11: 1 if rs1 < imm0_11 else 0
+            if rs1 < imm0_11:
+                self.registers[rd] = 1
+            else: 
+                self.registers[rd] = 0
             self.registers[2] += 4
             print("sltiu register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
 
 
     def I_L_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xff)
+            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xff, 32, 32)
             self.registers[2] += 4
             print("lb register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x1:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffff)
+            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffff, 32, 32)
             self.registers[2] += 4
             print("lh register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x2:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffffffff)
+            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffffffff, 32, 32)
             self.registers[2] += 4
             print("lw register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x4:
-            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xff)
+            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xff, 32, 32)
             self.registers[2] += 4
             print("lbu register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x5:
-            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xffff)
+            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xffff, 32, 32)
             self.registers[2] += 4
             print("lhu register[%d], register[%d], %d" %(rd, rs1, imm0_11))
 
@@ -269,17 +283,18 @@ class RiscvSimulator:
         if func3 == 0x0:
             self.registers[rd] = self.registers[2] + 4
             self.registers[2] = self.registers[rs1] + self.to_signed(imm0_11, 12) 
-        print("jalr register[%d], register[%d], %d" %(rd, rs1, imm0_11))
+        print("jalr register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
 
     def U_L_instruction(self, rd, imm31_12):
-        self.registers[rd] = self.to_signed(imm31_12, 20)
+        self.registers[rd] = self.to_signed(imm31_12, 32)
         self.registers[2] += 4
-        print("lui register[%d], %d" %(rd, imm31_12))
+        print("lui register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
+        print(self.registers[rd])
 
     def U_A_instruction(self, rd, imm31_12):
-        self.registers[rd] = self.registers[2] + self.to_signed(imm31_12, 20)
+        self.registers[rd] = self.registers[2] + self.to_signed(imm31_12, 32)
         self.registers[2] += 4
-        print("auipc register[%d], %d" %(rd, imm31_12))
+        print("auipc register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
 
     def I_E_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0 and imm0_11 == 0x0:
@@ -300,22 +315,27 @@ class RiscvSimulator:
             print("Unhandled I-type instruction")
 
 
-    def msb_extend(self,value, bits):
-        mask = 1 << (bits - 1)  
-        extended_value = (value & ((1 << bits) - 1))  
-        if extended_value & mask:
-            extended_value -= (1 << bits)
-        return extended_value
+    def msb_extend(self,value,original_bits, target_bits):
+        if value & (1 << (original_bits - 1)):
+            original_bits += 1  
+        sign_bit = 1 << (original_bits - 1)
+        if value & sign_bit: # negative
+            extend_value = value | ((-1) << target_bits -1)
+        else: # positive
+            extend_value = value & ((1 << target_bits) - 1)
+        return extend_value
     
     def zero_extend(self,value, bits):
         extended_value = value & ((1 << bits) - 1)
         return extended_value
     
     def to_signed(self, value, bits):
+        mask = (1 << bits) - 1
+        value &= mask
         if value & (1 << (bits - 1)):
             return value - (1 << bits)
         return value
-
+    
 
 def read_binary_to_instruction_list(file_path):
     try:
@@ -337,7 +357,7 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    instructions = read_binary_to_instruction_list("../tests/task1/bool.bin")
+    instructions = read_binary_to_instruction_list("../tests/task1/addlarge.bin")
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
