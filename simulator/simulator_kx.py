@@ -238,37 +238,37 @@ class RiscvSimulator:
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
             if self.registers[rs1] == self.registers[rs2]:
-                self.registers[2] += self.to_signed(imm, 13) * 4
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("beq register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x1:
             if self.registers[rs1] != self.registers[rs2]:
-                self.registers[2] += self.to_signed(imm, 13) * 4
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("bne register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x4:
             if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13) * 4
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("blt register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x5:
             if self.to_signed(self.registers[rs1], 32) >= self.to_signed(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13) * 4
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("bge register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x6:
-            if self.zero_extend(self.registers[rs1], 32) < self.zero_extend(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13) * 4
+            if self.to_unsigned(self.registers[rs1], 32) < self.to_unsigned(self.registers[rs2], 32):
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("bltu register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x7:
-            if self.zero_extend(self.registers[rs1], 32) >= self.zero_extend(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13) * 4
+            if self.to_unsigned(self.registers[rs1], 32) >= self.to_unsigned(self.registers[rs2], 32):
+                self.registers[2] += self.to_signed(imm, 13)
             else:
                 self.registers[2] += 4
             print("bgeu register[%d], register[%d], %d" %(rs1, rs2, imm))
@@ -277,7 +277,7 @@ class RiscvSimulator:
 
     def J_instruction(self, rd, imm):
         self.registers[rd] = self.registers[2] + 4
-        self.registers[2] += self.to_signed(imm, 21) * 4  
+        self.registers[2] += self.to_signed(imm, 21)
         print("jal register[%d], %d" %(rd, imm))
 
 
@@ -291,7 +291,6 @@ class RiscvSimulator:
         self.registers[rd] = self.to_signed(imm31_12, 32)
         self.registers[2] += 4
         print("lui register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
-        print(self.registers[rd])
 
     def U_A_instruction(self, rd, imm31_12):
         self.registers[rd] = self.registers[2] + self.to_signed(imm31_12, 32)
@@ -337,6 +336,10 @@ class RiscvSimulator:
         if value & (1 << (bits - 1)):
             return value - (1 << bits)
         return value
+    
+    def to_unsigned(self, value, bits):
+        mask = (1 << bits) - 1
+        return value & mask
     
 
 def read_binary_to_instruction_list(file_path):
