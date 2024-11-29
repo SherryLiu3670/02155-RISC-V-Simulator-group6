@@ -293,7 +293,7 @@ class RiscvSimulator:
         print("lui register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
 
     def U_A_instruction(self, rd, imm31_12):
-        self.registers[rd] = self.registers[2] + self.to_signed(imm31_12, 32)
+        self.registers[rd] = self.zero_extend(self.registers[2] + self.to_signed(imm31_12, 32),32)
         self.registers[2] += 4
         print("auipc register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
 
@@ -364,7 +364,6 @@ def read_binary_to_instruction_list(file_path):
 
 def main():
     path = os.path.abspath(os.path.join(os.getcwd(), "tests/test_jalr.bin"))
-    print(path)
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
