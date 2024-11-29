@@ -1,10 +1,10 @@
 import os
 
 class RiscvSimulator:
-    def __init__(self, program, memory_size = int(8*1e6)):
+    def __init__(self, program, memory_size = int(1e6)):
         self.registers = [0x00000000]*32
         self.registers[2] = 0
-        self.memory = [0] * memory_size
+        self.memory = [0x00] * memory_size
         self.program = program
 
     def load_program(self):
@@ -12,7 +12,7 @@ class RiscvSimulator:
             instruction = self.program[i] 
             instruction_bytes = instruction.to_bytes(4, 'little')  
             self.memory[i * 4:(i + 1) * 4] = instruction_bytes 
-
+            
     def decode_inst(self):
         while self.registers[2] < len(self.memory):
             instruction = self.memory[self.registers[2]:self.registers[2]+4]
@@ -200,39 +200,53 @@ class RiscvSimulator:
 
     def I_L_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xff, 32, 32)
+            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11], 32, 32)
+            print(rd)
+            print(self.registers[rd])
             self.registers[2] += 4
             print("lb register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x1:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffff, 32, 32)
+            load_hw = self.memory[rs1 + imm0_11] + self.memory[rs1 + imm0_11 + 1] << 8
+            self.registers[rd] = self.msb_extend(load_hw, 32, 32)
             self.registers[2] += 4
             print("lh register[%d], register[%d], %d" %(rd, rs1, imm0_11))
+            print(self.registers[rd])
         elif func3 == 0x2:
-            self.registers[rd] = self.msb_extend(self.memory[rs1 + imm0_11] & 0xffffffff, 32, 32)
+            load_w = self.memory[rs1 + imm0_11] + self.memory[rs1 + imm0_11 + 1] << 8 + self.memory[rs1 + imm0_11 + 2] << 16 + self.memory[rs1 + imm0_11 + 3] << 24  
+            self.registers[rd] = self.msb_extend(load_w, 32, 32)
             self.registers[2] += 4
             print("lw register[%d], register[%d], %d" %(rd, rs1, imm0_11))
+            print(self.registers[rd])
         elif func3 == 0x4:
-            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xff, 32, 32)
+            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11], 32)
             self.registers[2] += 4
             print("lbu register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x5:
-            self.registers[rd] = self.zero_extend(self.memory[rs1 + imm0_11] & 0xffff, 32, 32)
+            load_uhw = self.memory[rs1 + imm0_11] + self.memory[rs1 + imm0_11 + 1] << 8
+            self.registers[rd] = self.zero_extend(load_uhw, 32)
             self.registers[2] += 4
             print("lhu register[%d], register[%d], %d" %(rd, rs1, imm0_11))
 
 
     def S_instruction(self, imm0_4, size, rs1, rs2, imm5_11):
         imm = ((imm5_11 << 5) | imm0_4)  # Combine the immediate parts
-        address = self.registers[rs1] + self.to_signed(imm, 12)
+        address = self.zero_extend(self.registers[rs1] + self.to_signed(imm, 12), 32)
         if size == 0x0:  # SB (Store Byte)
-            self.memory[address] = self.registers[rs2] & 0xFF
+            self.memory[address] = self.zero_extend(self.registers[rs2] & 0x000000FF, 8)
             print(f"sb x{rs2}, {imm}(x{rs1})")
+            print(self.memory[address:address+1])
         elif size == 0x1:  # SH (Store Half-Word)
-            self.memory[address] = self.registers[rs2] & 0xFFFF
+            self.memory[address] = self.zero_extend(self.registers[rs2] & 0x000000FF, 8)
+            self.memory[address+1] = self.zero_extend(((self.registers[rs2] & 0x0000FF00) >> 8),8)
             print(f"sh x{rs2}, {imm}(x{rs1})")
+            print(self.memory[address:address+2])
         elif size == 0x2:  # SW (Store Word)
-            self.memory[address] = self.registers[rs2] & 0xFFFFFFFF
+            self.memory[address]= self.zero_extend(self.to_signed(self.registers[rs2] & 0x000000FF,8), 8)
+            self.memory[address+1] = self.zero_extend(self.to_signed(((self.registers[rs2] & 0x0000FF00) >> 8), 8),8)
+            self.memory[address+2] = self.zero_extend(self.to_signed(((self.registers[rs2] & 0x00FF0000) >> 16),8),8)
+            self.memory[address+3] = self.zero_extend(self.to_signed(((self.registers[rs2] & 0xFF000000) >> 24),8),8)
             print(f"sw x{rs2}, {imm}(x{rs1})")
+            print(print(self.memory[address:address+4]))
         self.registers[2] += 4
 
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
@@ -363,7 +377,7 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    instructions = read_binary_to_instruction_list(f"{os.getcwd()}/tests/task1/addlarge.bin")
+    instructions = read_binary_to_instruction_list(f"{os.getcwd()}/tests/InstructionTests/test_sw.bin")
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
