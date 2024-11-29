@@ -40,9 +40,9 @@ class RiscvSimulator:
                     self.I_instruction(rd, func3, rs1, imm0_11)
                 elif (opcode == 0b0000011):
                     self.I_L_instruction(rd, func3, rs1, imm0_11)
-                elif (opcode == 1100111):
+                elif (opcode == 0b1100111):
                     self.I_R_instruction(rd, func3, rs1, imm0_11)
-                elif (opcode == 1110011):
+                elif (opcode == 0b1110011):
                     print("enter ecall")
                     self.I_E_instruction(rd, func3, rs1, imm0_11)
 
@@ -284,7 +284,7 @@ class RiscvSimulator:
     def I_R_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
             self.registers[rd] = self.registers[2] + 4
-            self.registers[2] = self.registers[rs1] + self.to_signed(imm0_11, 12) 
+            self.registers[2] = self.zero_extend(self.zero_extend(self.registers[rs1],32) + self.to_signed(imm0_11, 12),32) 
         print("jalr register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
 
     def U_L_instruction(self, rd, imm31_12):
@@ -363,7 +363,9 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    instructions = read_binary_to_instruction_list(f"{os.getcwd()}/tests/task1/addlarge.bin")
+    path = os.path.abspath(os.path.join(os.getcwd(), "tests/test_jalr.bin"))
+    print(path)
+    instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
