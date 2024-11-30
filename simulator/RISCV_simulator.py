@@ -12,7 +12,7 @@ class RiscvSimulator:
             instruction = self.program[i] 
             instruction_bytes = instruction.to_bytes(4, 'little')  
             self.memory[i * 4:(i + 1) * 4] = instruction_bytes 
-            
+
     def decode_inst(self):
         while self.registers[2] < len(self.memory):
             instruction = self.memory[self.registers[2]:self.registers[2]+4]
@@ -96,7 +96,17 @@ class RiscvSimulator:
                 break
         
         
-            
+    def save_registers_res(self, file_path):
+        try:
+            with open(file_path, "wb") as res_file:
+                for reg in self.registers:
+                    # Handle two's complement representation for signed integers
+                    if reg < 0:
+                        reg = (1 << 32) + reg # COnvert to unsigned 32-bit integer
+                    res_file.write(reg.to_bytes(4, byteorder='little', signed=False))
+            print(f"Registers saved successfully to {file_path}")
+        except Exception as e:
+            print(f"Error saving rgisters to file: {e}")
 
     
     def R_instruction(self, rd, funct3, rs1, rs2, funct7):
@@ -378,19 +388,20 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    path = os.path.join(os.getcwd(), "test_sh.bin")
+    path = os.path.join(os.getcwd(), "tests","InstructionTests","test_sw.bin")
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     riskv.decode_inst()
     
+    output_file = os.path.join(os.getcwd(), "registers_2.res")
+    riskv.save_registers_res(output_file)
 
  
 if __name__ == "__main__":
     main()
 
     
-
 
 
 
