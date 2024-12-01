@@ -3,7 +3,7 @@ import os
 class RiscvSimulator:
     def __init__(self, program, memory_size = int(0x1000000)):
         self.registers = [0x00000000]*32
-        self.registers[2] = 0
+        self.pc = 0
         self.memory = [0x00] * memory_size
         self.program = program
 
@@ -15,13 +15,14 @@ class RiscvSimulator:
         self.decode_inst() 
 
     def decode_inst(self):
-        while self.registers[2] < len(self.memory):
-            instruction = self.memory[self.registers[2]:self.registers[2]+4]
+        while self.pc < len(self.memory):
+            instruction = self.memory[self.pc:self.pc+4]
             if len(instruction) < 4:
-                print(f"Incomplete instruction at PC={self.registers[2]}")
+                print(f"Incomplete instruction at PC={self.pc}")
                 break 
             instruction = int.from_bytes(bytes(instruction), 'little')  # Small endian
             opcode = instruction & 0x7f
+            self.registers[0] = 0
 
             if (opcode == 0b0110011): # R-type
                 rd = (instruction & 0xf80) >> 7
@@ -148,31 +149,31 @@ class RiscvSimulator:
         elif funct3 == 0x3:  # SLTU (Set Less Than Unsigned)
             self.registers[rd] = 1 if self.registers[rs1] < self.registers[rs2] else 0
             print(f"sltu x{rd}, x{rs1}, x{rs2}")
-        self.registers[2] += 4  
+        self.pc += 4  
         
         
 
     def I_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
             self.registers[rd] =  self.msb_extend(self.to_signed(self.registers[rs1],32) + self.to_signed(imm0_11, 12), 32,32)
-            self.registers[2] += 4
+            self.pc += 4
             print("addi register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x4:
             print("xori")
             self.registers[rd] = self.zero_extend(self.registers[rs1]^self.zero_extend(imm0_11,32),32)
-            self.registers[2] += 4
+            self.pc += 4
             print("xori register[%d], register[%d], %d" %(rd, rs1, imm0_11))
         elif func3 == 0x6:
             self.registers[rd] = self.zero_extend(self.registers[rs1] | self.zero_extend(imm0_11,32),32)
-            self.registers[2] += 4
+            self.pc += 4
             print("ori register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
         elif func3 == 0x7:
             self.registers[rd] = self.zero_extend(self.registers[rs1] & self.zero_extend(imm0_11, 32),32)
-            self.registers[2] += 4
+            self.pc += 4
             print("ANDi register[%d], register[%d], %d" %(rd, rs1, imm0_11))   
         elif func3 == 0x1:
             self.registers[rd] = (self.registers[rs1] << (imm0_11 & 0b11111)) & 0xffffffff
-            self.registers[2] += 4
+            self.pc += 4
             print("slli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
         elif func3 == 0x5:
             if ((imm0_11 & 0xfe0) >> 5) == 0x00:
@@ -180,7 +181,7 @@ class RiscvSimulator:
                     self.registers[rd] = self.zero_extend((self.registers[rs1] + (1 << 32)) >> (imm0_11 & 0b11111), 32)  
                 else:
                     self.registers[rd] = self.zero_extend(self.registers[rs1] >> (imm0_11 & 0b11111), 32)      
-                self.registers[2] += 4
+                self.pc += 4
                 print("srli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
             elif  ((imm0_11 & 0xfe0) >> 5) == 0x20:
                 imm0_4 = imm0_11 & 0b11111
@@ -188,7 +189,7 @@ class RiscvSimulator:
                 #     self.registers[rd] = self.msb_extend((self.registers[rs1] >> imm0_4) | ((1 << 32) - 1) << (32 - imm0_4), 32, 32) 
                 # else:
                 self.registers[rd] = self.msb_extend(self.registers[rs1] >> imm0_4, 32, 32)
-                self.registers[2] += 4
+                self.pc += 4
                 print("srai register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
         elif func3 == 0x2:
             rs1 = self.to_signed(self.registers[rs1],32)
@@ -197,7 +198,7 @@ class RiscvSimulator:
                 self.registers[rd] = 1
             else:
                 self.registers[rd] = 0
-            self.registers[2] += 4
+            self.pc += 4
             print("slti register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
         elif func3 == 0x3:
             rs1 = self.registers[rs1]
@@ -205,38 +206,38 @@ class RiscvSimulator:
                 self.registers[rd] = 1
             else: 
                 self.registers[rd] = 0
-            self.registers[2] += 4
+            self.pc += 4
             print("sltiu register[%d], register[%d], %d" %(rd, rs1, imm0_11)) 
 
 
     def I_L_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] = self.msb_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)], 32, 32)
+            self.registers[rd] = self.msb_extend(self.to_signed(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)], 8),32, 32)
             # print(rd)
             # print(self.registers[rd])
             # print("address of memory", rs1 + self.to_signed(imm0_11,12))
-            self.registers[2] += 4
+            self.pc += 4
             print("lb register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x1:
             load_hw = self.zero_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11, 12)],8) | (self.memory[self.registers[rs1] + self.to_signed(imm0_11,12) + 1] << 8)
-            self.registers[rd] = self.msb_extend(load_hw, 32, 32)
-            self.registers[2] += 4
+            self.registers[rd] = self.msb_extend(self.to_signed(load_hw, 16),32, 32)
+            self.pc += 4
             print("lh register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
             # print(self.registers[rd])
         elif func3 == 0x2:
             load_w = self.zero_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)],8) | self.zero_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12) + 1] << 8,16) | self.zero_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12) + 2] << 16, 24) | self.memory[self.registers[rs1] + self.to_signed(imm0_11,12) + 3] << 24  
             self.registers[rd] = self.msb_extend(load_w, 32, 32)
-            self.registers[2] += 4
+            self.pc += 4
             print("lw register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
             # print(self.registers[rd])
         elif func3 == 0x4:
-            self.registers[rd] = self.zero_extend(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)], 32)
-            self.registers[2] += 4
+            self.registers[rd] = self.zero_extend(self.to_unsigned(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)],8), 32)
+            self.pc += 4
             print("lbu register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x5:
             load_uhw = self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)] | (self.memory[self.registers[rs1] + self.to_signed(imm0_11,12) + 1] << 8)
-            self.registers[rd] = self.zero_extend(load_uhw, 32)
-            self.registers[2] += 4
+            self.registers[rd] = self.zero_extend(self.to_unsigned(load_uhw,16), 32)
+            self.pc += 4
             print("lhu register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
 
 
@@ -259,68 +260,68 @@ class RiscvSimulator:
             self.memory[address+3] = self.msb_extend(self.to_signed(((self.registers[rs2] & 0xFF000000) >> 24),8),8, 8)
             print(f"sw x{rs2}, {imm}(x{rs1})")
             print(address, self.memory[address:address+4])
-        self.registers[2] += 4
+        self.pc += 4
 
     def B_instruction(self, imm_11, imm1_4, func3, rs1, rs2, imm5_10, imm12, imm):
         if func3 == 0x0:
             if self.registers[rs1] == self.registers[rs2]:
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("beq register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x1:
             if self.registers[rs1] != self.registers[rs2]:
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("bne register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x4:
             if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("blt register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x5:
             if self.to_signed(self.registers[rs1], 32) >= self.to_signed(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("bge register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x6:
             if self.to_unsigned(self.registers[rs1], 32) < self.to_unsigned(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("bltu register[%d], register[%d], %d" %(rs1, rs2, imm))
         elif func3 == 0x7:
             if self.to_unsigned(self.registers[rs1], 32) >= self.to_unsigned(self.registers[rs2], 32):
-                self.registers[2] += self.to_signed(imm, 13)
+                self.pc += self.to_signed(imm, 13)
             else:
-                self.registers[2] += 4
+                self.pc += 4
             print("bgeu register[%d], register[%d], %d" %(rs1, rs2, imm))
         
 
 
     def J_instruction(self, rd, imm):
-        self.registers[rd] = self.registers[2] + 4
-        self.registers[2] += self.to_signed(imm, 21)
+        self.registers[rd] = self.pc + 4
+        self.pc += self.to_signed(imm, 21)
         print("jal register[%d], %d" %(rd, imm))
 
 
     def I_R_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
-            self.registers[rd] = self.registers[2] + 4
-            self.registers[2] = self.zero_extend(self.zero_extend(self.registers[rs1],32) + self.to_signed(imm0_11, 12),32) 
+            self.registers[rd] = self.pc + 4
+            self.pc = self.zero_extend(self.zero_extend(self.registers[rs1],32) + self.to_signed(imm0_11, 12),32) 
         print("jalr register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
 
     def U_L_instruction(self, rd, imm31_12):
         self.registers[rd] = self.to_signed(imm31_12, 32)
-        self.registers[2] += 4
+        self.pc += 4
         print("lui register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
 
     def U_A_instruction(self, rd, imm31_12):
-        self.registers[rd] = self.zero_extend(self.registers[2] + self.to_signed(imm31_12, 32),32)
-        self.registers[2] += 4
+        self.registers[rd] = self.zero_extend(self.pc + self.to_signed(imm31_12, 32),32)
+        self.pc += 4
         print("auipc register[%d], %d" %(rd, self.to_signed(imm31_12,32)))
 
     def I_E_instruction(self, rd, func3, rs1, imm0_11):
@@ -389,7 +390,7 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    path = os.path.join(os.getcwd(), "tests/task3/width.bin")
+    path = os.path.join(os.getcwd(), "tests/task3/loop.bin")
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
