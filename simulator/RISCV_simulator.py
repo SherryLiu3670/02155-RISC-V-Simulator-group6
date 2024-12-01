@@ -1,7 +1,7 @@
 import os
 
 class RiscvSimulator:
-    def __init__(self, program, memory_size = int(1e6)):
+    def __init__(self, program, memory_size = int(0x1000000)):
         self.registers = [0x00000000]*32
         self.registers[2] = 0
         self.memory = [0x00] * memory_size
@@ -11,7 +11,8 @@ class RiscvSimulator:
         for i in range(len(self.program)):
             instruction = self.program[i] 
             instruction_bytes = instruction.to_bytes(4, 'little')  
-            self.memory[i * 4:(i + 1) * 4] = instruction_bytes 
+            self.memory[i * 4:(i + 1) * 4] = instruction_bytes
+        self.decode_inst() 
 
     def decode_inst(self):
         while self.registers[2] < len(self.memory):
@@ -378,11 +379,10 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    path = os.path.join(os.getcwd(), "test_sh.bin")
+    path = os.path.join(os.getcwd(), "tests/task3/width.bin")
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
-    riskv.decode_inst()
     
 
  
