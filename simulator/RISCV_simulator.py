@@ -97,7 +97,17 @@ class RiscvSimulator:
                 break
         
         
-            
+    def save_registers_res(self, file_path):
+        try:
+            with open(file_path, "wb") as res_file:
+                for reg in self.registers:
+                    # Handle two's complement representation for signed integers
+                    if reg < 0:
+                        reg = (1 << 32) + reg # COnvert to unsigned 32-bit integer
+                    res_file.write(reg.to_bytes(4, byteorder='little', signed=False))
+            print(f"Registers saved successfully to {file_path}")
+        except Exception as e:
+            print(f"Error saving rgisters to file: {e}")
 
     
     def R_instruction(self, rd, funct3, rs1, rs2, funct7):
@@ -384,13 +394,14 @@ def main():
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     
+    output_file = os.path.join(os.getcwd(), "registers_2.res")
+    riskv.save_registers_res(output_file)
 
  
 if __name__ == "__main__":
     main()
 
     
-
 
 
 
