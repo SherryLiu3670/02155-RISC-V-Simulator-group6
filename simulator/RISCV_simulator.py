@@ -395,7 +395,7 @@ def main():
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     
-    output_file = os.path.join(os.getcwd(), "registers_2.res")
+    output_file = os.path.join(os.getcwd(), "result.res")
     riskv.save_registers_res(output_file)
 
  
