@@ -147,7 +147,7 @@ class RiscvSimulator:
             self.registers[rd] = 1 if self.to_signed(self.registers[rs1], 32) < self.to_signed(self.registers[rs2], 32) else 0
             print(f"slt x{rd}, x{rs1}, x{rs2}")
         elif funct3 == 0x3:  # SLTU (Set Less Than Unsigned)
-            self.registers[rd] = 1 if self.registers[rs1] < self.registers[rs2] else 0
+            self.registers[rd] = 1 if self.to_unsigned(self.registers[rs1],32) < self.to_unsigned(self.registers[rs2],32) else 0
             print(f"sltu x{rd}, x{rs1}, x{rs2}")
         self.pc += 4  
         
@@ -390,7 +390,7 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    path = os.path.join(os.getcwd(), "tests/task3/loop.bin")
+    path = os.path.join(os.getcwd(), "tests/task1/set.bin")
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
