@@ -159,7 +159,6 @@ class RiscvSimulator:
             self.pc += 4
             print("addi register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x4:
-            print("xori")
             self.registers[rd] = self.zero_extend(self.registers[rs1]^self.zero_extend(imm0_11,32),32)
             self.pc += 4
             print("xori register[%d], register[%d], %d" %(rd, rs1, imm0_11))
@@ -177,17 +176,11 @@ class RiscvSimulator:
             print("slli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
         elif func3 == 0x5:
             if ((imm0_11 & 0xfe0) >> 5) == 0x00:
-                if self.registers[rs1] < 0:
-                    self.registers[rd] = self.zero_extend((self.registers[rs1] + (1 << 32)) >> (imm0_11 & 0b11111), 32)  
-                else:
-                    self.registers[rd] = self.zero_extend(self.registers[rs1] >> (imm0_11 & 0b11111), 32)      
+                self.registers[rd] = self.zero_extend((self.registers[rs1] & 0xffffffff) >> (imm0_11 & 0b11111), 32)  
                 self.pc += 4
                 print("srli register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
             elif  ((imm0_11 & 0xfe0) >> 5) == 0x20:
                 imm0_4 = imm0_11 & 0b11111
-                # if self.registers[rs1] < 0:
-                #     self.registers[rd] = self.msb_extend((self.registers[rs1] >> imm0_4) | ((1 << 32) - 1) << (32 - imm0_4), 32, 32) 
-                # else:
                 self.registers[rd] = self.msb_extend(self.registers[rs1] >> imm0_4, 32, 32)
                 self.pc += 4
                 print("srai register[%d], register[%d], %d" %(rd, rs1, (imm0_11 & 0b11111))) 
@@ -213,9 +206,6 @@ class RiscvSimulator:
     def I_L_instruction(self, rd, func3, rs1, imm0_11):
         if func3 == 0x0:
             self.registers[rd] = self.msb_extend(self.to_signed(self.memory[self.registers[rs1] + self.to_signed(imm0_11,12)], 8),32, 32)
-            # print(rd)
-            # print(self.registers[rd])
-            # print("address of memory", rs1 + self.to_signed(imm0_11,12))
             self.pc += 4
             print("lb register[%d], register[%d], %d" %(rd, rs1, self.to_signed(imm0_11,12)))
         elif func3 == 0x1:
@@ -328,17 +318,13 @@ class RiscvSimulator:
         if func3 == 0x0 and imm0_11 == 0x0:
             print("ecall Transfer control to OS")
             syscall_number = self.registers[17]  # a7 is registers[17]
-        
             if syscall_number == 1: 
                 print("System Call: Print Integer")
                 print("Value:", self.registers[11]) 
-
             elif syscall_number == 10:  # exit program
                 print("System Call: Exit Program")
-
             else:
                 print(f"Unknown System Call: {syscall_number}")
-
         else:
             print("Unhandled I-type instruction")
 
