@@ -1,4 +1,5 @@
 import os
+import argparse
 
 class RiscvSimulator:
     def __init__(self, program, memory_size = int(0x1000000)):
@@ -376,12 +377,21 @@ def read_binary_to_instruction_list(file_path):
         print(f"error: {e}")
 
 def main():
-    path = os.path.join(os.getcwd(), "tests/task1/set.bin")
+    parser = argparse.ArgumentParser(description="RISC-V Simulator")
+    parser.add_argument("binary_file", type=str, help="Binary file to process")
+    args = parser.parse_args()
+
+    path = os.path.join(os.getcwd(), args.binary_file)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"The file {args.binary_file} does not exist.")
+    bin_file_name = os.path.basename(path)
+    base_name, _ = os.path.splitext(bin_file_name)
+    
     instructions = read_binary_to_instruction_list(path)
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     
-    output_file = os.path.join(os.getcwd(), "result.res")
+    output_file = os.path.join(os.getcwd(), f"{base_name}_FP6.res")
     riskv.save_registers_res(output_file)
 
  
