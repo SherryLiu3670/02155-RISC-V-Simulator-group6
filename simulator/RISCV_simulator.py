@@ -391,7 +391,7 @@ def main():
     riskv = RiscvSimulator(instructions)
     riskv.load_program()
     
-    output_file = os.path.join(os.getcwd(), f"{base_name}_FP6.res")
+    output_file = os.path.join(os.getcwd(), f"{base_name}_result.res")
     riskv.save_registers_res(output_file)
 
  
